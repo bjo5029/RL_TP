@@ -3,21 +3,27 @@ import gymnasium as gym
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecMonitor
-
-from callback import SaveOnBestTrainingRewardCallback
+from callback import SaveOnBestTrainingRewardCallback # 사용자 정의 콜백
 
 import numpy as np
 # np.bool8 = np.bool
 
 def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None, total_timesteps=100000):   
-    # Environment
+    # 모델 저장 디렉토리가 존재하지 않을 경우 자동으로 생성하도록
+    os.makedirs(log_base_dir, exist_ok=True)
+    os.makedirs(model_base_dir, exist_ok=True)
+
+    # 환경 설정
     env = make_vec_env(env_id, n_envs=8)
     env = VecMonitor(env, log_base_dir)
 
-    # Agent Model
+    # 모델 이름 기본값 설정
     if model_name is None:    
         model_name = env_id + "_PPO"
+
     log_dir = os.path.join(log_base_dir, env_id)
+
+    # PPO 모델 초기화
     model = PPO(
         policy="MlpPolicy",
         env=env,
@@ -48,8 +54,10 @@ def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None,
         device='auto',
     )            
 
-    # Train
+    # 학습 콜백 설정
     callback = SaveOnBestTrainingRewardCallback(check_freq=1000, log_dir=log_base_dir)   
+
+    # 모델 학습
     model.learn(
         total_timesteps=total_timesteps,
         callback=callback,
@@ -59,25 +67,25 @@ def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None,
         progress_bar=True,
     )
 
-    # Save the trained model
+    # 모델 저장
     save_path = os.path.join(os.getcwd(), model_base_dir, model_name)
     model.save(save_path)
 
-    # close the environment
+    # 환경 종료
     env.close()
 
 
 def run(env_id, model_base_dir="models", model_name=None, n_episodes=5):
-    # Environment
+    # 환경 설정
     env = gym.make(env_id, render_mode='human')
     
-    # Model
+    # 모델 로드
     if model_name is None:
         model_name = env_id + "_PPO"
     model_path = os.path.join(model_base_dir, model_name)
     model = PPO.load(model_path, env)
 
-    # Run    
+    # 학습된 모델 실행
     for episode in range(n_episodes):
         obs, info = env.reset()
 
@@ -93,7 +101,7 @@ def run(env_id, model_base_dir="models", model_name=None, n_episodes=5):
                 episode_reward = 0
                 break
             
-    # close the environment
+    # 환경 종료
     env.close()
 
 
