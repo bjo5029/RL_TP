@@ -8,13 +8,13 @@ from callback import SaveOnBestTrainingRewardCallback # 사용자 정의 콜백
 import numpy as np
 # np.bool8 = np.bool
 
-def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None, total_timesteps=100000):   
-    # 모델 저장 디렉토리가 존재하지 않을 경우 자동으로 생성하도록
+def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None, total_timesteps=400000):   
+    # 모델 저장 디렉토리가 존재하지 않을 경우 자동으로 생성
     os.makedirs(log_base_dir, exist_ok=True)
     os.makedirs(model_base_dir, exist_ok=True)
 
     # 환경 설정
-    env = make_vec_env(env_id, n_envs=8)
+    env = make_vec_env(env_id, n_envs=32)
     env = VecMonitor(env, log_base_dir)
 
     # 모델 이름 기본값 설정
@@ -28,29 +28,32 @@ def train(env_id, log_base_dir="logs", model_base_dir="models", model_name=None,
         policy="MlpPolicy",
         env=env,
         # -------------------------------------------------
-        learning_rate=0.001,
-        n_steps = 32,
-        batch_size=256,
-        n_epochs=20,
-        gamma=0.98,
-        gae_lambda=0.8,
-        clip_range=0.2,
-        clip_range_vf=None,
+        learning_rate=5e-4, # 7.77e-5 -> 5e-4
+        n_steps=32,         # 8 -> 32           
+        batch_size=256,              
+        n_epochs=10,                 
+        gamma=0.9999,                
+        gae_lambda=0.9,              
+        clip_range=0.1,
+        # clip_range_vf=None,
         normalize_advantage=True,
-        ent_coef=0.0,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        use_sde=False,
-        sde_sample_freq=-1,
-        rollout_buffer_class=None,
-        rollout_buffer_kwargs=None,
-        target_kl=None,
-        stats_window_size=100,
-        policy_kwargs=None,
+        ent_coef=0.00429,
+        vf_coef=0.19,
+        max_grad_norm=5,
+        use_sde=True,
+        # sde_sample_freq=-1,
+        # rollout_buffer_class=None,
+        # rollout_buffer_kwargs=None,
+        # target_kl=None,
+        # stats_window_size=100,
+        policy_kwargs=dict(          
+            log_std_init=-3.29,
+            ortho_init=False
+        ),
         # -------------------------------------------------
         tensorboard_log = log_dir,
         verbose=1,
-        seed=None,
+        # seed=None,
         device='auto',
     )            
 
@@ -82,6 +85,7 @@ def run(env_id, model_base_dir="models", model_name=None, n_episodes=5):
     # 모델 로드
     if model_name is None:
         model_name = env_id + "_PPO"
+
     model_path = os.path.join(model_base_dir, model_name)
     model = PPO.load(model_path, env)
 
@@ -91,7 +95,7 @@ def run(env_id, model_base_dir="models", model_name=None, n_episodes=5):
 
         episode_reward = 0
         while True:
-            action, next_state = model.predict(obs, deterministic=True)
+            action, _ = model.predict(obs, deterministic=True)
             obs, reward, terminated, truncated, info = env.step(action)
             time.sleep(0.01)
             episode_reward += reward
